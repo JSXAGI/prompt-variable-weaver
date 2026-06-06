@@ -1,0 +1,22 @@
+{
+  "name": "Prompt Variable Weaver",
+  "short_name": "PVWeaver",
+  "description": "動的プロンプトテンプレートジェネレーター",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

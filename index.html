@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Variable Weaver</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* --- 基本リセット ＆ 変数定義 --- */
+        :root {
+            --indigo-600: #4f46e5;
+            --indigo-700: #4338ca;
+            --indigo-200: #c7d2fe;
+            --indigo-100: #e0e7ff;
+            --indigo-800: #3730a3;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-400: #94a3b8;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --emerald-500: #10b981;
+            --emerald-600: #059669;
+            --rose-100: #ffe4e6;
+            --rose-400: #fb7185;
+            --rose-600: #e11d48;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--slate-50);
+            color: var(--slate-800);
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            line-height: 1.5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+
+        header {
+            background-color: var(--indigo-600);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        header h1 { font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+        header p { color: var(--indigo-200); font-size: 0.875rem; }
+
+        main { flex: 1; display: flex; overflow: hidden; }
+        .pane-left { width: 50%; display: flex; flex-direction: column; border-right: 1px solid var(--slate-200); background-color: white; }
+        .pane-right { width: 50%; display: flex; flex-direction: column; background-color: var(--slate-50); overflow: hidden; }
+
+        .section-header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .section-title { font-size: 0.875rem; font-weight: 600; color: var(--slate-600); }
+        .input-text-base {
+            width: 100%; font-size: 0.875rem; border: 1px solid var(--slate-300); border-radius: 0.25rem;
+            padding: 0.5rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; background-color: white;
+        }
+        .input-text-base:focus { border-color: var(--indigo-600); box-shadow: 0 0 0 2px var(--indigo-100); }
+
+        .template-mgmt { padding: 1rem; border-bottom: 1px solid var(--slate-200); background-color: var(--slate-50); flex-shrink: 0; }
+        .mgmt-buttons { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+        
+        .btn-xs {
+            font-size: 0.75rem; background-color: white; border: 1px solid var(--slate-300); color: var(--slate-700);
+            padding: 0.25rem 0.5rem; border-radius: 0.25rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 0.25rem;
+        }
+        .btn-xs:hover { background-color: var(--slate-100); }
+        .btn-delete-xs { color: var(--rose-600); border-color: var(--rose-400); opacity: 0.5; cursor: not-allowed; }
+        .btn-delete-xs.active { opacity: 1; cursor: pointer; background-color: var(--rose-100); }
+        .btn-delete-xs.active:hover { background-color: var(--rose-600); color: white; border-color: var(--rose-600); }
+
+        .template-editor { padding: 1rem; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        .template-hint { font-size: 0.75rem; color: var(--slate-500); }
+        .template-hint code { background-color: var(--slate-100); padding: 0 0.25rem; border-radius: 0.25rem; color: var(--indigo-600); }
+        #templateTitle { margin-bottom: 0.75rem; flex-shrink: 0; }
+        #templateInput { flex: 1; resize: none; line-height: 1.625; }
+        
+        .btn-primary {
+            background-color: var(--indigo-600); color: white; font-size: 0.875rem; font-weight: 500; padding: 0.5rem 1rem;
+            border: none; border-radius: 0.25rem; cursor: pointer; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            transition: background-color 0.2s; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .btn-primary:hover { background-color: var(--indigo-700); }
+        .action-row { margin-top: 1rem; display: flex; justify-content: flex-end; flex-shrink: 0; }
+
+        .variables-box { padding: 1.5rem; border-bottom: 1px solid var(--slate-200); background-color: white; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); flex-shrink: 0; max-height: 50%; overflow-y: auto; }
+        .variables-box .section-title { margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .variables-box .section-title i { color: var(--indigo-500); }
+        .grid-form { display: flex; flex-direction: column; gap: 1.25rem; }
+        .form-group { display: flex; flex-direction: column; gap: 0.375rem; width: 100%; }
+        .form-group label { font-size: 0.75rem; font-weight: 700; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.05em; }
+        .form-group textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+        .empty-info { font-size: 0.875rem; color: var(--slate-400); font-style: italic; padding: 1.5rem; text-align: center; border: 2px dashed var(--slate-200); border-radius: 0.25rem; }
+
+        .preview-box { padding: 1.5rem; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        .preview-box .section-header-box { margin-bottom: 1rem; flex-shrink: 0; }
+        .preview-box .section-title { display: flex; align-items: center; gap: 0.5rem; }
+        .preview-box .section-title i { color: var(--emerald-500); }
+        
+        .btn-success {
+            background-color: var(--emerald-500); color: white; font-size: 0.875rem; font-weight: 500; padding: 0.375rem 1rem;
+            border: none; border-radius: 0.25rem; cursor: pointer; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+            transition: background-color 0.2s; display: flex; align-items: center; gap: 0.5rem;
+        }
+        .btn-success:hover { background-color: var(--emerald-600); }
+        
+        #previewArea {
+            width: 100%; flex: 1; background-color: white; border: 1px solid var(--slate-300); border-radius: 0.25rem;
+            padding: 1rem; font-size: 0.875rem; white-space: pre-wrap; overflow-y: auto; color: var(--slate-700); line-height: 1.625;
+            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.06);
+        }
+
+        .hl-filled { background-color: var(--indigo-100); color: var(--indigo-800); padding: 0 0.25rem; border-radius: 0.125rem; font-weight: 500; }
+        .hl-empty { background-color: var(--rose-100); color: var(--rose-600); padding: 0 0.25rem; border-radius: 0.125rem; font-weight: 500; opacity: 0.7; }
+
+        #toast {
+            position: fixed; bottom: 1.25rem; right: 1.25rem; background-color: var(--slate-800); color: white;
+            padding: 0.5rem 1rem; border-radius: 0.375rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            transform: translateY(5rem); opacity: 0; transition: all 0.3s ease; z-index: 50; display: flex; align-items: center; gap: 0.5rem;
+        }
+        #toast.show { transform: translateY(0); opacity: 1; }
+        #toast i.success { color: var(--emerald-500); }
+        #toast i.error { color: var(--rose-400); }
+    </style>
+
+    <script src="samples.js"></script>
+</head>
+<body>
+    <header>
+        <h1><i class="fa-solid fa-wand-magic-sparkles"></i>Prompt Variable Weaver</h1>
+        <p>動的プロンプトテンプレートジェネレーター</p>
+    </header>
+
+    <main>
+        <div class="pane-left">
+            <div class="template-mgmt">
+                <div class="section-header-box">
+                    <h2 class="section-title">テンプレート管理</h2>
+                    <div class="mgmt-buttons">
+                        <button id="importBtn" class="btn-xs" title="JSONファイルからインポート"><i class="fa-solid fa-file-import"></i>読込</button>
+                        <button id="exportBtn" class="btn-xs" title="全テンプレートをファイルへ書き出し"><i class="fa-solid fa-file-export"></i>保存</button>
+                        <button id="deleteBtn" class="btn-xs btn-delete-xs" title="現在のテンプレートを削除"><i class="fa-solid fa-trash-can"></i>削除</button>
+                        <button id="newBtn" class="btn-xs" title="新規作成（入力をクリア）"><i class="fa-solid fa-plus"></i>新規</button>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" accept=".json" style="display: none;">
+                <select id="templateSelector" class="input-text-base">
+                    <option value="">-- テンプレートを選択 --</option>
+                </select>
+            </div>
+
+            <div class="template-editor">
+                <div class="section-header-box">
+                    <h2 class="section-title">テンプレート設計</h2>
+                    <div class="template-hint">変数は <code>{{変数名}}</code> の形式で入力</div>
+                </div>
+                <input type="text" id="templateTitle" placeholder="テンプレートのタイトル" class="input-text-base">
+                <textarea id="templateInput" class="input-text-base" placeholder="ここにテンプレートとなるプロンプトを入力してください..."></textarea>
+                <div class="action-row">
+                    <button id="saveBtn" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i>テンプレートを保存</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="pane-right">
+            <div class="variables-box">
+                <h2 class="section-title"><i class="fa-solid fa-sliders"></i>変数入力</h2>
+                <div id="variablesContainer" class="grid-form">
+                    <div class="empty-info">左側のテキストに {{変数}} を追加すると、ここに入力フォームが現れます。</div>
+                </div>
+            </div>
+
+            <div class="preview-box">
+                <div class="section-header-box">
+                    <h2 class="section-title"><i class="fa-solid fa-eye"></i>完成プレビュー</h2>
+                    <button id="copyBtn" class="btn-success"><i class="fa-solid fa-copy"></i>コピー</button>
+                </div>
+                <div id="previewArea"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast">
+        <i id="toastIcon" class="fa-solid"></i>
+        <span id="toastMessage">コピーしました</span>
+    </div>
+
+    <script>
+        // PWA用のサービスワーカー登録
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(reg => {
+                    console.log('ServiceWorker登録成功:', reg.scope);
+                }).catch(err => {
+                    console.log('ServiceWorker登録失敗:', err);
+                });
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const templateInput = document.getElementById('templateInput');
+            const templateTitle = document.getElementById('templateTitle');
+            const variablesContainer = document.getElementById('variablesContainer');
+            const previewArea = document.getElementById('previewArea');
+            const copyBtn = document.getElementById('copyBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const templateSelector = document.getElementById('templateSelector');
+            const newBtn = document.getElementById('newBtn');
+            const deleteBtn = document.getElementById('deleteBtn');
+            const importBtn = document.getElementById('importBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const fileInput = document.getElementById('fileInput');
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+
+            let variables = {}; 
+            let userTemplates = JSON.parse(localStorage.getItem('pvw_templates')) || [];
+
+            renderTemplateSelector();
+            processTemplate();
+            toggleDeleteButton();
+
+            templateInput.addEventListener('input', processTemplate);
+            
+            copyBtn.addEventListener('click', () => {
+                const text = previewArea.textContent;
+                if (!text || text === 'プレビューがここに表示されます') return;
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast('クリップボードにコピーしました！', false);
+                });
+            });
+
+            saveBtn.addEventListener('click', () => {
+                const title = templateTitle.value.trim();
+                const content = templateInput.value.trim();
+                if (!title || !content) {
+                    showToast('タイトルと内容を入力してください', true);
+                    return;
+                }
+                const existingIndex = userTemplates.findIndex(t => t.title === title);
+                if (existingIndex >= 0) {
+                    userTemplates[existingIndex].content = content;
+                } else {
+                    userTemplates.push({ id: 'user-' + Date.now().toString(), title, content });
+                }
+                localStorage.setItem('pvw_templates', JSON.stringify(userTemplates));
+                renderTemplateSelector();
+                templateSelector.value = title;
+                toggleDeleteButton();
+                showToast('テンプレートを保存しました', false);
+            });
+
+            templateSelector.addEventListener('change', (e) => {
+                const title = e.target.value;
+                toggleDeleteButton();
+                if (!title) return;
+                
+                let template = userTemplates.find(t => t.title === title) || (typeof defaultTemplates !== 'undefined' ? defaultTemplates.find(t => t.title === title) : null);
+                if (template) {
+                    templateTitle.value = template.title;
+                    templateInput.value = template.content;
+                    processTemplate();
+                }
+            });
+
+            newBtn.addEventListener('click', () => {
+                templateTitle.value = '';
+                templateInput.value = '';
+                templateSelector.value = '';
+                variables = {};
+                processTemplate();
+                toggleDeleteButton();
+            });
+
+            deleteBtn.addEventListener('click', () => {
+                const title = templateSelector.value;
+                if (!title) return;
+                const isUserTemplate = userTemplates.some(t => t.title === title);
+                if (!isUserTemplate) {
+                    showToast('内蔵サンプルは削除できません', true);
+                    return;
+                }
+                if (confirm(`テンプレート「${title}」を本当に削除しますか？`)) {
+                    userTemplates = userTemplates.filter(t => t.title !== title);
+                    localStorage.setItem('pvw_templates', JSON.stringify(userTemplates));
+                    templateTitle.value = '';
+                    templateInput.value = '';
+                    templateSelector.value = '';
+                    variables = {};
+                    renderTemplateSelector();
+                    processTemplate();
+                    toggleDeleteButton();
+                    showToast('テンプレートを削除しました', false);
+                }
+            });
+
+            exportBtn.addEventListener('click', () => {
+                const allData = {
+                    app: "Prompt Variable Weaver",
+                    version: "2026.1",
+                    exportedAt: new Date().toISOString(),
+                    templates: userTemplates.length > 0 ? userTemplates : (typeof defaultTemplates !== 'undefined' ? defaultTemplates : [])
+                };
+                const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pvw_templates_backup.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('ファイルとして書き出しました！', false);
+            });
+
+            importBtn.addEventListener('click', () => { fileInput.click(); });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        if (importedData && Array.isArray(importedData.templates)) {
+                            importedData.templates.forEach(newTmp => {
+                                if(!newTmp.title || !newTmp.content) return;
+                                const idx = userTemplates.findIndex(t => t.title === newTmp.title);
+                                if(idx >= 0) {
+                                    userTemplates[idx].content = newTmp.content;
+                                } else {
+                                    userTemplates.push({
+                                        id: 'user-' + Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                                        title: newTmp.title,
+                                        content: newTmp.content
+                                    });
+                                }
+                            });
+                            localStorage.setItem('pvw_templates', JSON.stringify(userTemplates));
+                            renderTemplateSelector();
+                            showToast('ファイルからインポートしました！', false);
+                        } else { showToast('無効なファイル形式です', true); }
+                    } catch (err) { showToast('ファイルの読み込みに失敗しました', true); }
+                    fileInput.value = '';
+                };
+                reader.readAsText(file);
+            });
+
+            function toggleDeleteButton() {
+                const title = templateSelector.value;
+                const isUserTemplate = userTemplates.some(t => t.title === title);
+                if (title && isUserTemplate) { deleteBtn.classList.add('active'); } 
+                else { deleteBtn.classList.remove('active'); }
+            }
+
+            function processTemplate() {
+                const text = templateInput.value;
+                const regex = /{{\s*([\s\S]*?)\s*}}/g;
+                let match;
+                const currentVariables = new Set();
+                while ((match = regex.exec(text)) !== null) {
+                    const varName = match[1].trim();
+                    if(varName) currentVariables.add(varName);
+                }
+                const newVarObj = {};
+                currentVariables.forEach(v => { newVarObj[v] = variables[v] || ''; });
+                variables = newVarObj;
+                renderVariableInputs(Array.from(currentVariables));
+                updatePreview();
+            }
+
+            function renderVariableInputs(varNames) {
+                if (varNames.length === 0) {
+                    variablesContainer.innerHTML = `<div class="empty-info">左側のテキストに {{変数}} を追加すると、ここに入力フォームが現れます。</div>`;
+                    return;
+                }
+                variablesContainer.innerHTML = '';
+                varNames.forEach(varName => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'form-group';
+                    const label = document.createElement('label');
+                    label.textContent = varName;
+                    let input;
+                    const lowerVar = varName.toLowerCase();
+                    if (lowerVar.includes('情報') || lowerVar.includes('内容') || lowerVar.includes('文') || lowerVar.includes('リスト') || lowerVar.includes('前提') || lowerVar.includes('詳細') || lowerVar.includes('テーマ') || lowerVar.includes('文') || lowerVar.includes('計画')) {
+                        input = document.createElement('textarea');
+                    } else {
+                        input = document.createElement('input');
+                        input.type = 'text';
+                    }
+                    input.className = 'input-text-base';
+                    input.value = variables[varName];
+                    input.placeholder = `${varName} を入力...`;
+                    input.addEventListener('input', (e) => {
+                        variables[varName] = e.target.value;
+                        updatePreview();
+                    });
+                    wrapper.appendChild(label);
+                    wrapper.appendChild(input);
+                    variablesContainer.appendChild(wrapper);
+                });
+            }
+
+            function updatePreview() {
+                let text = templateInput.value;
+                if (!text) {
+                    previewArea.innerHTML = '<span style="color: var(--slate-400); font-style: italic;">プレビューがここに表示されます</span>';
+                    return;
+                }
+                const regex = /{{\s*([\s\S]*?)\s*}}/g;
+                text = text.replace(regex, (match, p1) => {
+                    const varName = p1.trim();
+                    const val = variables[varName];
+                    if (val) { return `<span class="hl-filled">${escapeHTML(val)}</span>`; }
+                    return `<span class="hl-empty">${match}</span>`;
+                });
+                previewArea.innerHTML = text;
+            }
+
+            function renderTemplateSelector() {
+                const currentVal = templateSelector.value;
+                templateSelector.innerHTML = '<option value="">-- テンプレートを選択 --</option>';
+                if (userTemplates.length > 0) {
+                    const optGroupUser = document.createElement('optgroup');
+                    optGroupUser.label = "マイ・テンプレート（カスタム）";
+                    userTemplates.forEach(t => {
+                        const option = document.createElement('option');
+                        option.value = t.title; option.textContent = t.title;
+                        optGroupUser.appendChild(option);
+                    });
+                    templateSelector.appendChild(optGroupUser);
+                }
+                if (typeof defaultTemplates !== 'undefined' && defaultTemplates.length > 0) {
+                    const optGroupDefault = document.createElement('optgroup');
+                    optGroupDefault.label = "内蔵サンプルテンプレート";
+                    defaultTemplates.forEach(t => {
+                        const option = document.createElement('option');
+                        option.value = t.title; option.textContent = t.title;
+                        optGroupDefault.appendChild(option);
+                    });
+                    templateSelector.appendChild(optGroupDefault);
+                }
+                if (currentVal) { templateSelector.value = currentVal; }
+            }
+
+            function showToast(msg, isError = false) {
+                toastMessage.textContent = msg;
+                if (isError) { toastIcon.className = 'fa-solid fa-circle-exclamation error'; } 
+                else { toastIcon.className = 'fa-solid fa-circle-check success'; }
+                toast.classList.add('show');
+                setTimeout(() => { toast.classList.remove('show'); }, 3000);
+            }
+
+            function escapeHTML(str) {
+                return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+            }
+        });
+    </script>
+</body>
+</html>
